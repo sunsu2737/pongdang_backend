@@ -4,6 +4,8 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import logging
+from .serializer import UserSerializer
+import user
 from .models import User
 from email.mime.text import MIMEText
 import smtplib
@@ -72,6 +74,28 @@ class UserCreate(APIView):
             logger.error(f"회원가입 실패 nickname: {nickname}, email: {email}, {e}")
             return Response(status=500)
 
+
+class Profile (APIView):
+    def post(self, request):
+        logger = logging.getLogger('LOG')
+        token = request.data.get("token", None)
+        try:
+            user = Token.objects.filter(key=token).first()
+            if not user:
+                logger.warning(f"프로필 조회 실패, 토큰 없음")
+                Response(status=400)
+            user_id = user.user_id
+            profile = User.objects.filter(id=user_id).first()
+            if not profile:
+                logger.warning(f"프로필 조회 실패, user 없음")
+                Response(status=400)
+            logger.info(f"프로필 조회 성공 user_id: {user_id}")
+            return Response(status=200, data=UserSerializer(profile).data)
+        except Exception as e:
+            logger.error(f"프로필 조회 실패 , {e}")
+            return Response(status=500)
+
+
 class UserLogin(APIView):
     def post(self, request):
         email = request.data.get('email', None)
@@ -100,15 +124,19 @@ class UserLogin(APIView):
                     f'아래 링크를 눌러 인증해주세요.\n http://127.0.0.1:8000/user/create?email={email}')
                 msg['Subject'] = '버디 인증 메일입니다.'
 
-                smtp.sendmail('buddyAuthMail@gmail.com', email, msg.as_string())
+                smtp.sendmail('buddyAuthMail@gmail.com',
+                              email, msg.as_string())
 
                 smtp.quit()
+                logger.info(f"로그인 성공 email: {email}")
                 return Response(status=401)
             token, created = Token.objects.get_or_create(user=user)
-            
+
             return Response(status=200, data={"token": str(token)})
         except Exception as e:
-            logger.error(f"로그인 실패 email: {email}, {e}")    
+            logger.error(f"로그인 실패 email: {email}, {e}")
+            return Response(status=500)
+
 
 class Feed(APIView):
 
