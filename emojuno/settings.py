@@ -203,3 +203,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
     ]
 }
+
+# 미디어 루트설정
+MEDIA_ROOT = os.path.join(BASE_DIR, "images")
+MEDIA_URL = "/images/"

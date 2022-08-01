@@ -1,8 +1,12 @@
-from django.contrib import admin
-from django.urls import path, include
-from .views import UserCreate
+from django.urls import path
+from .views import UserCreate, UserLogin
+
+
+
+
 
 urlpatterns = [
     path('create/', UserCreate.as_view()),
-
+    path('login/', UserLogin.as_view()),
+    
 ]

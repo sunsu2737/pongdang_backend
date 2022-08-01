@@ -1,11 +1,14 @@
+from re import A
 from django.db import IntegrityError
 from django.shortcuts import render
-from rest_framework.views import APIView 
+from rest_framework.views import APIView
 from rest_framework.response import Response
 import logging
-from .models import User, UserManager
+from .models import User
 from email.mime.text import MIMEText
 import smtplib
+from django.contrib.auth.hashers import check_password
+from rest_framework.authtoken.models import Token
 # Create your views here.
 
 
@@ -32,18 +35,17 @@ class UserCreate(APIView):
             return render(request, 'auth/auth_fail.html')
 
     def post(self, request):
-        nickname = request.data.get('nickname',None)
-        email = request.data.get('email',None)
-        password = request.data.get('password',None)
+        nickname = request.data.get('nickname', None)
+        email = request.data.get('email', None)
+        password = request.data.get('password', None)
 
         logger = logging.getLogger('LOG')
 
         logger.info(f"회원가입 요청 nickname: {nickname}, email: {email}")
-        
 
         try:
-            User.objects.create_user(email=email, nickname=nickname, password=password)
-
+            User.objects.create_user(
+                email=email, nickname=nickname, password=password)
 
             smtp = smtplib.SMTP('smtp.gmail.com', 587)
 
@@ -53,10 +55,11 @@ class UserCreate(APIView):
 
             smtp.login('buddyAuthMail@gmail.com', 'wdtzdxijdkoivyay')
 
-            msg = MIMEText(f'아래 링크를 눌러 인증해주세요.\n http://127.0.0.1:8000/user/create?email={email}')
+            msg = MIMEText(
+                f'아래 링크를 눌러 인증해주세요.\n http://127.0.0.1:8000/user/create?email={email}')
             msg['Subject'] = '버디 인증 메일입니다.'
 
-            smtp.sendmail('buddyAuthMail@gmail.com',email , msg.as_string())
+            smtp.sendmail('buddyAuthMail@gmail.com', email, msg.as_string())
 
             smtp.quit()
             logger.info(f"회원가입 완료 nickname: {nickname}, email: {email}")
@@ -68,5 +71,46 @@ class UserCreate(APIView):
         except Exception as e:
             logger.error(f"회원가입 실패 nickname: {nickname}, email: {email}, {e}")
             return Response(status=500)
-        
 
+class UserLogin(APIView):
+    def post(self, request):
+        email = request.data.get('email', None)
+        password = request.data.get('password', None)
+        logger = logging.getLogger('LOG')
+
+        try:
+            user = User.objects.filter(email=email).first()
+            if not user:
+                logger.warning(f"로그인 실패 email: {email}, 이메일 없음")
+                return Response(status=400)
+            if not check_password(password, user.password):
+                logger.warning(f"로그인 실패 email: {email}, 비밀번호 불일치")
+                return Response(status=400)
+            if not user.auth:
+                logger.warning(f"로그인 실패 email: {email}, 인증 안됨")
+                smtp = smtplib.SMTP('smtp.gmail.com', 587)
+
+                smtp.ehlo()
+
+                smtp.starttls()
+
+                smtp.login('buddyAuthMail@gmail.com', 'wdtzdxijdkoivyay')
+
+                msg = MIMEText(
+                    f'아래 링크를 눌러 인증해주세요.\n http://127.0.0.1:8000/user/create?email={email}')
+                msg['Subject'] = '버디 인증 메일입니다.'
+
+                smtp.sendmail('buddyAuthMail@gmail.com', email, msg.as_string())
+
+                smtp.quit()
+                return Response(status=401)
+            token, created = Token.objects.get_or_create(user=user)
+            
+            return Response(status=200, data={"token": str(token)})
+        except Exception as e:
+            logger.error(f"로그인 실패 email: {email}, {e}")    
+
+class Feed(APIView):
+
+    def post(self, request):
+        pass
