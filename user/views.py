@@ -4,13 +4,17 @@ from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import logging
-from .serializer import UserSerializer
 import user
 from .models import User
 from email.mime.text import MIMEText
 import smtplib
 from django.contrib.auth.hashers import check_password
 from rest_framework.authtoken.models import Token
+from .serializer import UserSerializer
+import base64
+import numpy as np
+import cv2
+import uuid
 # Create your views here.
 
 
@@ -93,6 +97,37 @@ class Profile (APIView):
             return Response(status=200, data=UserSerializer(profile).data)
         except Exception as e:
             logger.error(f"프로필 조회 실패 , {e}")
+            return Response(status=500)
+
+
+class UploadProfile(APIView):
+    def post(self, request):
+        logger = logging.getLogger('LOG')
+        token = request.data[0]['token']
+
+        try:
+            user = Token.objects.filter(key=token).first()
+            if not user:
+                logger.warning(f"프로필 조회 실패, 토큰 없음")
+                Response(status=400)
+            user_id = user.user_id
+            profile = User.objects.filter(id=user_id).first()
+            if not profile:
+                logger.warning(f"프로필 조회 실패, user 없음")
+                Response(status=400)
+
+            base64Image = request.data[0]['image']
+            imageStr = base64.b64decode(base64Image)
+            nparr = np.fromstring(imageStr, np.uint8)
+            img_np = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            filename =  str(uuid.uuid1()) + '.png'
+            print(filename)
+            if cv2.imwrite(r'./images/' +filename, img_np):
+                profile.profile_image = filename
+                profile.save()
+            return Response(status=200)
+        except Exception as e:
+            logger.error(f"프로필 이미지 업로드 실패 , {e}")
             return Response(status=500)
 
 
