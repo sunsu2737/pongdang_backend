@@ -77,5 +77,5 @@ class User(AbstractBaseUser):
 
 
 class Feed(models.Model):
-    post = models.ForeignKey(User, on_delete=models.CASCADE)
-    image = models.ImageField(upload_to="post/%Y/%m/%d")
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    image = models.TextField(default='default_image.png')
